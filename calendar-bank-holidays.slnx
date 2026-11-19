@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/CalendarBankHolidays/CalendarBankHolidays.csproj" />
+  <Project Path="src/CalendarBankHolidays.Console/CalendarBankHolidays.Console.csproj" />
+  <Project Path="src/CalendarBankHolidays.Background/CalendarBankHolidays.Background.csproj" />
+
+  <Project Path="tests/CalendarBankHolidays.Tests/CalendarBankHolidays.Tests.csproj" />
+</Solution>

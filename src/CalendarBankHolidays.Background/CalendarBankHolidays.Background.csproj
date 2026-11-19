@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>calendar-bank-holidays-background</AssemblyName>
+    <RootNamespace>CalendarBankHolidays</RootNamespace>
+    <PublishAot>true</PublishAot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CalendarBankHolidays\CalendarBankHolidays.csproj" />
+  </ItemGroup>
+</Project>
