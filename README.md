@@ -59,8 +59,9 @@ Windows (x64) only; nothing else is needed.
   being a bank holiday (GOV.UK moves one) loses its entry. Past days are never touched.
 - **GOV.UK's list is read at most once a day**, and the last good copy is kept: if it can't be read, the copy is used
   (and the log says so); with no copy at all, the run fails.
-- **Safety:** a run that would remove more than `max_deletes` (default 5) entries changes nothing and says why. A run
-  that fails is logged and notified once, until one succeeds. A write whose answer is lost is never resent: the next
+- **Safety:** a run that would remove more than `max_deletes` (default 5) entries changes nothing and says why. A run that fails is logged, and
+  notified on the third failure in a row (a run on waking can find the network not up yet), or at once for a
+  sign-in or a safety stop; once only, until a run succeeds. A write whose answer is lost is never resent: the next
   run reads the calendar.
 
 ## Commands

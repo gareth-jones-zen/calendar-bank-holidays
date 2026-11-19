@@ -228,9 +228,13 @@ public sealed class CalendarBankHolidaysTests : IDisposable
         var (code, output, error) = Run(Settings, "run");
         Assert.Equal(1, code);
         Assert.Contains("no network", error);
-        Assert.Contains("NOTIFIED calendar-bank-holidays couldn't run", output);
+        Assert.DoesNotContain("NOTIFIED", output);   // 0.1.1: not on the first failure (the network may just not be up yet)
         (_, output, _) = Run(Settings, "run");
         Assert.DoesNotContain("NOTIFIED", output);
+        (_, output, _) = Run(Settings, "run");
+        Assert.Contains("NOTIFIED calendar-bank-holidays couldn't run", output);   // the third in a row
+        (_, output, _) = Run(Settings, "run");
+        Assert.DoesNotContain("NOTIFIED", output);   // once only
 
         feedDown = false;
         Run(Settings, "run");
