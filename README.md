@@ -38,7 +38,7 @@ Windows (x64) only; nothing else is needed.
 
 ## What it does
 
-- **Each bank holiday from today to `months_ahead` months on (default 12), on the day GOV.UK gives** (so a
+- **Each bank holiday from today to `months_ahead` months on (if unset, `long_range_months_ahead`; default 12), on the day GOV.UK gives** (so a
   substitute day, not the weekend), gets:
   - **`[all_day]`, on by default:** an all-day entry, by default its name ("Good Friday", "Boxing Day (substitute
     day)"), shown as free, in a "Bank holiday" category. **Not added when an all-day entry with that name is already

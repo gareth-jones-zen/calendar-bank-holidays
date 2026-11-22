@@ -267,6 +267,32 @@ public sealed class CalendarBankHolidaysTests : IDisposable
         Assert.Single(calendar.Items);
     }
 
+    [Fact]
+    public void Without_months_ahead_the_bases_long_range_months_ahead_is_used()
+    {
+        File.WriteAllText(Path.Combine(dir, "base-config.toml"), "long_range_months_ahead = 6\n");
+        var (code, output, error) = Run("base = \"base-config.toml\"\n" + Settings, "plan");
+        Assert.True(code == 0, error);
+        Assert.Contains("19/11/2026 to 19/05/2027", output);
+    }
+
+    [Fact]
+    public void Months_ahead_wins_over_the_bases_long_range_months_ahead()
+    {
+        File.WriteAllText(Path.Combine(dir, "base-config.toml"), "long_range_months_ahead = 6\n");
+        var (code, output, error) = Run("base = \"base-config.toml\"\nmonths_ahead = 3\n" + Settings, "plan");
+        Assert.True(code == 0, error);
+        Assert.Contains("19/11/2026 to 19/02/2027", output);
+    }
+
+    [Fact]
+    public void Without_either_the_window_is_twelve_months()
+    {
+        var (code, output, error) = Run(Settings, "plan");
+        Assert.True(code == 0, error);
+        Assert.Contains("19/11/2026 to 19/11/2027", output);
+    }
+
     [Theory]
     [InlineData("region = \"wales\"", "region should be one of")]
     [InlineData("months_ahead = 0", "months_ahead should be a whole number from 1 to 36")]

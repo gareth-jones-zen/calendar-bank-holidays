@@ -67,7 +67,7 @@ public sealed class Config
     public static readonly string[] KnownKeys =
     [
         "login_hint", "tenant", "msal_cache", "log_file", "state_file", "cache_file", "time_zone", "enabled", "region",
-        "months_ahead", "feed_url", "daily_at", "after_unlock_minutes", "notify", "max_deletes", "body", "block", "all_day", "adopt",
+        "months_ahead", "long_range_months_ahead", "feed_url", "daily_at", "after_unlock_minutes", "notify", "max_deletes", "body", "block", "all_day", "adopt",
         "extra", "skip",
     ];
 
@@ -277,7 +277,7 @@ public sealed class Config
             TimeZone = zone,
             Enabled = Flag("enabled", true),
             Region = region,
-            MonthsAhead = Whole("months_ahead", 12, 1, 36),
+            MonthsAhead = raw.ContainsKey("months_ahead") ? Whole("months_ahead", 12, 1, 36) : Whole("long_range_months_ahead", 12, 1, 36),   // own, else the base's shared long-range value, else 12
             FeedUrl = Text(raw, "feed_url", "feed_url") ?? DefaultFeed,
             DailyAt = dailyAt,
             AfterUnlockMinutes = raw.ContainsKey("after_unlock_minutes") ? Whole("after_unlock_minutes", 1, 0, 60) is var u && u > 0 ? u : null : 1,
