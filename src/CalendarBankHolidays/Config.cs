@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using PyCompat;
 using Tomlyn;
 using Tomlyn.Model;
+using WinBackground;
 
 namespace CalendarBankHolidays;
 
@@ -49,6 +50,10 @@ public sealed class Config
         "region = \"england-and-wales\"        # or scotland, northern-ireland\n" +
         "months_ahead = 12\n" +
         "\n" +
+        "[schedule]                         # when the task runs (background-tools-lib's shared keys)\n" +
+        "daily_at = \"07:00\"\n" +
+        "at_logon = true\n" +
+        "after_unlock_minutes = 0          # 0: no run after unlocking\n" +
         "\n" +
         "[all_day]                          # an all-day entry naming the day\n" +
         "enabled = true\n" +
@@ -68,8 +73,14 @@ public sealed class Config
     [
         "login_hint", "tenant", "msal_cache", "log_file", "state_file", "cache_file", "time_zone", "enabled", "region",
         "months_ahead", "long_range_months_ahead", "feed_url", "daily_at", "after_unlock_minutes", "notify", "max_deletes", "body", "block", "all_day", "adopt",
-        "extra", "skip",
+        "extra", "skip", "schedule",
     ];
+
+    /// <summary>The task's schedule when the settings don't give one: daily at 07:00 and at logon, no unlock run.</summary>
+    public static readonly ScheduleSettings ScheduleDefaults = new() { DailyAt = "07:00", AtLogon = true, AfterUnlockMinutes = 0 };
+
+    /// <summary>The schedule keys this tool took at the top level before [schedule] (0.4.0): still read, logged as deprecated.</summary>
+    public static readonly string[] OldScheduleKeys = ["daily_at", "after_unlock_minutes"];
 
     public required string Path { get; init; }
     public string? LoginHint { get; init; }
@@ -83,8 +94,12 @@ public sealed class Config
     public string Region { get; init; } = "england-and-wales";
     public int MonthsAhead { get; init; } = 12;
     public string FeedUrl { get; init; } = DefaultFeed;
-    public string DailyAt { get; init; } = "07:00";
-    public int? AfterUnlockMinutes { get; init; }   // null: no unlock trigger (the default since 0.3.0)
+    /// <summary>When the task runs ([schedule]; the shared keys are background-tools-lib's ScheduleSettings).</summary>
+    public ScheduleSettings Schedule { get; init; } = ScheduleDefaults;
+    /// <summary>The old top-level schedule keys this file still uses (empty when it uses [schedule]).</summary>
+    public IReadOnlyList<string> DeprecatedScheduleKeys { get; init; } = [];
+    public string DailyAt => Schedule.DailyAt ?? "07:00";
+    public int? AfterUnlockMinutes => Schedule.AfterUnlockMinutes > 0 ? Schedule.AfterUnlockMinutes : null;
     public bool Notify { get; init; } = true;
     public int MaxDeletes { get; init; } = 5;
     public string Body { get; init; } = "Written by calendar-bank-holidays from GOV.UK's list. Changes made here are overwritten.";
@@ -186,9 +201,35 @@ public sealed class Config
         var region = Text(raw, "region", "region") ?? "england-and-wales";
         if (!Regions.Contains(region))
             throw Bad($"region should be one of {string.Join(", ", Regions)}.");
-        var dailyAt = Text(raw, "daily_at", "daily_at") ?? "07:00";
-        if (!TimeOnly.TryParseExact(dailyAt, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
-            throw Bad("daily_at should be a time, as \"07:00\".");
+        var oldScheduleKeys = OldScheduleKeys.Where(raw.ContainsKey).ToList();
+        ScheduleSettings schedule;
+        try
+        {
+            if (raw.TryGetValue("schedule", out var scheduleTable))
+            {
+                if (oldScheduleKeys.Count > 0)
+                    throw Bad($"{string.Join(" and ", oldScheduleKeys)} and [schedule] are both given: keep [schedule] only.");
+                schedule = ScheduleSettings.Parse(scheduleTable as TomlTable ?? throw Bad("schedule should be a [schedule] section."),
+                    ScheduleDefaults, TaskKind.Job, $"{full}: [schedule]");
+            }
+            else
+            {
+                var old = ScheduleDefaults;
+                if (Text(raw, "daily_at", "daily_at") is { } dailyAt)
+                {
+                    if (!TimeOnly.TryParseExact(dailyAt, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+                        throw Bad("daily_at should be a time, as \"07:00\".");
+                    old = old with { DailyAt = dailyAt };
+                }
+                if (raw.ContainsKey("after_unlock_minutes"))
+                    old = old with { AfterUnlockMinutes = Whole("after_unlock_minutes", 0, 0, 60) };
+                schedule = ScheduleSettings.Parse(null, old, TaskKind.Job, $"{full}: [schedule]");
+            }
+        }
+        catch (FormatException error)
+        {
+            throw new UsageException(error.Message);
+        }
 
         EntryKind Kind(string name, EntryKind defaults)
         {
@@ -279,8 +320,8 @@ public sealed class Config
             Region = region,
             MonthsAhead = raw.ContainsKey("months_ahead") ? Whole("months_ahead", 12, 1, 36) : Whole("long_range_months_ahead", 12, 1, 36),   // own, else the base's shared long-range value, else 12
             FeedUrl = Text(raw, "feed_url", "feed_url") ?? DefaultFeed,
-            DailyAt = dailyAt,
-            AfterUnlockMinutes = Whole("after_unlock_minutes", 0, 0, 60) is var u && u > 0 ? u : null,   // off unless set (0.3.0; GJ, 22 Nov 2026: bank holidays change yearly)
+            Schedule = schedule,
+            DeprecatedScheduleKeys = oldScheduleKeys,
             Notify = Flag("notify", true),
             MaxDeletes = Whole("max_deletes", 5, 0, 1000),
             Body = Text(raw, "body", "body") ?? "Written by calendar-bank-holidays from GOV.UK's list. Changes made here are overwritten.",

@@ -32,7 +32,7 @@ Windows (x64) only; nothing else is needed.
 2. Unzip it to a folder that will stay put, such as `%LOCALAPPDATA%\Programs\calendar-bank-holidays`.
 3. `calendar-bank-holidays config` creates the settings file; `calendar-bank-holidays sign-in` signs you in (once).
 4. `calendar-bank-holidays plan` shows what it would do; `calendar-bank-holidays run` does it; `calendar-bank-holidays autostart on` keeps it up
-   to date (daily and at logon; after each unlock too, if you set `after_unlock_minutes`).
+   to date (when `[schedule]` says: daily at 07:00 and at logon by default).
 
 **It needs Calendars.ReadWrite** on Microsoft's "Graph Command Line Tools" app; `sign-in` asks for it.
 
@@ -95,8 +95,6 @@ enabled = true                    # false: runs do nothing (`remove` takes its e
 region = "england-and-wales"      # or scotland, northern-ireland
 months_ahead = 12
 feed_url = "https://www.gov.uk/bank-holidays.json"
-daily_at = "07:00"                # autostart
-after_unlock_minutes = 0          # autostart: also run this many minutes after each unlock; 0 (the default) for none
 notify = true
 max_deletes = 5
 body = "Written by calendar-bank-holidays from GOV.UK's list. Changes made here are overwritten."
@@ -119,7 +117,28 @@ categories = ["Bank holiday"]
 
 [adopt]
 subjects = '^\s*bank holiday\b'   # "" to take over nothing (only ever as the block)
+
+[schedule]                        # when the task runs: see below
+daily_at = "07:00"
 ```
+
+### [schedule]
+
+When the task runs, in the keys every background-tools-lib tool shares (`every_minutes`, `daily_at`, `hours`, `days`,
+`at_logon`, `after_unlock_minutes`, `end_date`): see background-tools-lib's README, "[schedule]: the shared scheduling
+settings". This tool's defaults:
+
+```toml
+[schedule]
+daily_at = "07:00"
+at_logon = true
+after_unlock_minutes = 0          # 0: no run after unlocking
+```
+
+`autostart on` registers the task from it and records it; `autostart status` says when the settings have changed since
+(run `autostart on` again). A run outside `hours` or `days`, or after `end_date`, does nothing. Before 0.4.0,
+`daily_at` and `after_unlock_minutes` were top-level settings: they still work, logged as deprecated, but not together
+with `[schedule]`.
 
 ## Building
 

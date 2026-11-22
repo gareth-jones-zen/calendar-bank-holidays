@@ -370,4 +370,89 @@ public sealed class CalendarBankHolidaysTests : IDisposable
         Run("after_unlock_minutes = 0\n" + Settings, "autostart", "on");
         Assert.Null(recorded.Schedule.AfterUnlock);
     }
+
+    private sealed class StatusTask(string? description) : ITask
+    {
+        public string Name => "calendar-bank-holidays run";
+        public string Enable(string exe, IReadOnlyList<string> args, string? workingDir) => throw new NotSupportedException();
+        public bool Disable() => true;
+        public bool Stop() => true;
+        public IReadOnlyDictionary<string, string>? Status() => new Dictionary<string, string>
+        {
+            ["state"] = "Ready", ["command"] = "x", ["description"] = description ?? "",
+        };
+    }
+
+    [Fact]
+    public void Without_a_schedule_section_the_task_is_unchanged_and_the_fingerprint_is_recorded()
+    {
+        var recorded = new RecordingTask();
+        task = recorded;
+        var (code, output, error) = Run(Settings, "autostart", "on");
+        Assert.True(code == 0, error);
+        Assert.Equal("07:00", recorded.Schedule!.DailyAt);
+        Assert.Null(recorded.Schedule.Every);
+        Assert.Null(recorded.Schedule.AfterUnlock);
+        Assert.True(recorded.Schedule.AtLogon);
+        Assert.Equal("v1 job every=0 daily=07:00 logon=yes unlock=0", recorded.Schedule.Fingerprint);
+        Assert.Contains("runs daily at 07:00, at logon, and has run now", output);
+    }
+
+    [Fact]
+    public void The_schedule_section_sets_the_task()
+    {
+        var recorded = new RecordingTask();
+        task = recorded;
+        var (code, output, error) = Run(Settings + "[schedule]\ndaily_at = \"06:15\"\nafter_unlock_minutes = 3\n", "autostart", "on");
+        Assert.True(code == 0, error);
+        Assert.Equal("06:15", recorded.Schedule!.DailyAt);
+        Assert.Equal(TimeSpan.FromMinutes(3), recorded.Schedule.AfterUnlock);
+        Assert.Contains("daily at 06:15, at logon, 3 minute(s) after each unlock", output);
+    }
+
+    [Fact]
+    public void The_old_top_level_keys_still_work_and_are_logged_as_deprecated()
+    {
+        var recorded = new RecordingTask();
+        task = recorded;
+        var (code, _, error) = Run("daily_at = \"08:00\"\n" + Settings, "autostart", "on");
+        Assert.True(code == 0, error);
+        Assert.Equal("08:00", recorded.Schedule!.DailyAt);
+        (code, _, error) = Run("daily_at = \"08:00\"\n" + Settings, "run");
+        Assert.True(code == 0, error);
+        Assert.Contains("daily_at at the top level are deprecated: move them to [schedule]", File.ReadAllText(Path.Combine(dir, "bh.log")));
+    }
+
+    [Theory]
+    [InlineData("daily_at = \"08:00\"\n" + Settings + "[schedule]\ndaily_at = \"07:00\"\n", "daily_at and [schedule] are both given")]
+    [InlineData(Settings + "[schedule]\ncolour = 1\n", "unknown setting colour")]
+    [InlineData(Settings + "[schedule]\nevery_minutes = 15\ndaily_at = \"07:00\"\n", "set every_minutes or daily_at, not both")]
+    public void A_bad_schedule_is_refused(string settings, string message)
+    {
+        var (code, _, error) = Run(settings, "plan");
+        Assert.Equal(2, code);
+        Assert.Contains(message, error);
+    }
+
+    [Fact]
+    public void Status_says_when_the_task_no_longer_matches_its_schedule()
+    {
+        task = new StatusTask("calendar-bank-holidays run (schedule: v1 job every=0 daily=07:00 logon=yes unlock=0)");
+        var (_, output, _) = Run(Settings, "autostart", "status");
+        Assert.DoesNotContain("settings changed", output);
+        (_, output, _) = Run(Settings + "[schedule]\ndaily_at = \"06:00\"\n", "autostart", "status");
+        Assert.Contains("settings changed since this task was registered: run `calendar-bank-holidays autostart on`", output);
+        task = new StatusTask("calendar-bank-holidays run");
+        (_, output, _) = Run(Settings, "autostart", "status");
+        Assert.Contains("registered before its schedule was recorded", output);
+    }
+
+    [Fact]
+    public void A_run_outside_the_schedule_does_nothing()
+    {
+        var (code, output, error) = Run(Settings + "[schedule]\ndaily_at = \"07:00\"\nend_date = \"2026-11-01\"\n", "run");
+        Assert.True(code == 0, error);
+        Assert.Contains("Outside the [schedule]", output);
+        Assert.Empty(calendar.Writes);
+    }
 }
