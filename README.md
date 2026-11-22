@@ -32,7 +32,7 @@ Windows (x64) only; nothing else is needed.
 2. Unzip it to a folder that will stay put, such as `%LOCALAPPDATA%\Programs\calendar-bank-holidays`.
 3. `calendar-bank-holidays config` creates the settings file; `calendar-bank-holidays sign-in` signs you in (once).
 4. `calendar-bank-holidays plan` shows what it would do; `calendar-bank-holidays run` does it; `calendar-bank-holidays autostart on` keeps it up
-   to date (daily, at logon and a minute after each unlock).
+   to date (daily and at logon; after each unlock too, if you set `after_unlock_minutes`).
 
 **It needs Calendars.ReadWrite** on Microsoft's "Graph Command Line Tools" app; `sign-in` asks for it.
 
@@ -70,7 +70,7 @@ Windows (x64) only; nothing else is needed.
 calendar-bank-holidays plan               each bank holiday, and what a run would change
 calendar-bank-holidays run [--dry-run]    make the calendar match
 calendar-bank-holidays remove [--dry-run] take out its entries from today on
-calendar-bank-holidays autostart on       run daily, at logon and after each unlock (off, restart, status)
+calendar-bank-holidays autostart on       run daily and at logon (off, restart, status)
 calendar-bank-holidays sign-in            sign in to Microsoft (once; opens a browser)
 calendar-bank-holidays config             create the settings file (if missing) and say where it is
 ```
@@ -96,7 +96,7 @@ region = "england-and-wales"      # or scotland, northern-ireland
 months_ahead = 12
 feed_url = "https://www.gov.uk/bank-holidays.json"
 daily_at = "07:00"                # autostart
-after_unlock_minutes = 1          # autostart; 0 for none
+after_unlock_minutes = 0          # autostart: also run this many minutes after each unlock; 0 (the default) for none
 notify = true
 max_deletes = 5
 body = "Written by calendar-bank-holidays from GOV.UK's list. Changes made here are overwritten."

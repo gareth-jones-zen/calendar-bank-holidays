@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using WinBackground;
 
 namespace CalendarBankHolidays.Tests;
 
@@ -94,6 +95,8 @@ public sealed class CalendarBankHolidaysTests : IDisposable
         }
     }
 
+    private ITask? task;
+
     private (int Code, string Out, string Err) Run(string settings, params string[] args)
     {
         var path = Path.Combine(dir, "config.toml");
@@ -104,6 +107,7 @@ public sealed class CalendarBankHolidaysTests : IDisposable
         var code = Cli.Run(["--config", path, .. args], new CliHost
         {
             Out = output, Err = errors, Env = _ => null, Now = () => now, Calendar = _ => calendar, Lock = false,
+            Task = () => task ?? throw new InvalidOperationException("no task in this test"), ProgramDir = dir,
             Notify = (title, _) => notes.Add(title),
             Download = _ =>
             {
@@ -329,5 +333,41 @@ public sealed class CalendarBankHolidaysTests : IDisposable
         Assert.Equal((new DateOnly(2027, 3, 26), Kind.Block), (read.OwnedDay!.Value, read.OwnedKind));
         var stamped = GraphCalendar.Stamped(new JsonObject { ["start"] = new JsonObject { ["dateTime"] = "2026-12-25T00:00:00" }, ["isAllDay"] = true });
         Assert.Equal("2026-12-25 all-day", (string)stamped["singleValueExtendedProperties"]![0]!["value"]!);
+    }
+
+    private sealed class RecordingTask : ITask
+    {
+        public TaskSchedule? Schedule { get; private set; }
+        public string Name => "calendar-bank-holidays run";
+        public string Enable(string exe, IReadOnlyList<string> args, string? workingDir) => throw new NotSupportedException();
+        public string Enable(string exe, IReadOnlyList<string> args, string? workingDir, TaskSchedule schedule)
+        {
+            Schedule = schedule;
+            return exe;
+        }
+        public bool Disable() => true;
+        public bool Stop() => true;
+        public IReadOnlyDictionary<string, string>? Status() => null;
+    }
+
+    [Fact]
+    public void Autostart_runs_daily_and_at_logon_but_not_after_unlock_unless_asked()
+    {
+        var recorded = new RecordingTask();
+        task = recorded;
+        var (code, output, error) = Run(Settings, "autostart", "on");
+        Assert.True(code == 0, error);
+        Assert.True(recorded.Schedule!.AtLogon);
+        Assert.Equal("07:00", recorded.Schedule.DailyAt);
+        Assert.Null(recorded.Schedule.AfterUnlock);
+        Assert.DoesNotContain("unlock", output);
+
+        (code, output, error) = Run("after_unlock_minutes = 2\n" + Settings, "autostart", "on");
+        Assert.True(code == 0, error);
+        Assert.Equal(TimeSpan.FromMinutes(2), recorded.Schedule.AfterUnlock);
+        Assert.Contains("2 minute(s) after each unlock", output);
+
+        Run("after_unlock_minutes = 0\n" + Settings, "autostart", "on");
+        Assert.Null(recorded.Schedule.AfterUnlock);
     }
 }

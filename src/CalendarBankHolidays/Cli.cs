@@ -43,7 +43,7 @@ public static class Cli
         "    calendar-bank-holidays plan               each bank holiday, and what a run would change\n" +
         "    calendar-bank-holidays run                make the calendar match (--dry-run: say what, change nothing)\n" +
         "    calendar-bank-holidays remove             take out its entries from today on (--dry-run)\n" +
-        "    calendar-bank-holidays autostart on       run daily, at logon and after unlocking (off, restart, status)\n" +
+        "    calendar-bank-holidays autostart on       run daily and at logon (off, restart, status)\n" +
         "    calendar-bank-holidays sign-in            sign in to Microsoft (once; opens a browser)\n" +
         "    calendar-bank-holidays config             create the settings file (if missing) and say where it is\n\n" +
         "options:\n" +

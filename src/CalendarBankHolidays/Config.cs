@@ -84,7 +84,7 @@ public sealed class Config
     public int MonthsAhead { get; init; } = 12;
     public string FeedUrl { get; init; } = DefaultFeed;
     public string DailyAt { get; init; } = "07:00";
-    public int? AfterUnlockMinutes { get; init; } = 1;
+    public int? AfterUnlockMinutes { get; init; }   // null: no unlock trigger (the default since 0.3.0)
     public bool Notify { get; init; } = true;
     public int MaxDeletes { get; init; } = 5;
     public string Body { get; init; } = "Written by calendar-bank-holidays from GOV.UK's list. Changes made here are overwritten.";
@@ -280,7 +280,7 @@ public sealed class Config
             MonthsAhead = raw.ContainsKey("months_ahead") ? Whole("months_ahead", 12, 1, 36) : Whole("long_range_months_ahead", 12, 1, 36),   // own, else the base's shared long-range value, else 12
             FeedUrl = Text(raw, "feed_url", "feed_url") ?? DefaultFeed,
             DailyAt = dailyAt,
-            AfterUnlockMinutes = raw.ContainsKey("after_unlock_minutes") ? Whole("after_unlock_minutes", 1, 0, 60) is var u && u > 0 ? u : null : 1,
+            AfterUnlockMinutes = Whole("after_unlock_minutes", 0, 0, 60) is var u && u > 0 ? u : null,   // off unless set (0.3.0; GJ, 22 Nov 2026: bank holidays change yearly)
             Notify = Flag("notify", true),
             MaxDeletes = Whole("max_deletes", 5, 0, 1000),
             Body = Text(raw, "body", "body") ?? "Written by calendar-bank-holidays from GOV.UK's list. Changes made here are overwritten.",
