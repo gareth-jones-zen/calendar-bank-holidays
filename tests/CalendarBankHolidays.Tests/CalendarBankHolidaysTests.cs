@@ -9,6 +9,10 @@ internal sealed class FakeCalendar : ICalendar
     public List<string> Writes { get; } = [];
     private int next;
 
+    /// <summary>The next create throws this, once; it lands in the calendar first when <see cref="CreateLands"/>.</summary>
+    public Exception? CreateFail { get; set; }
+    public bool CreateLands { get; set; }
+
     public IReadOnlyList<CalEvent> Events(DateOnly first, DateOnly last) =>
         Items.Where(e => e.End > first.ToDateTime(TimeOnly.MinValue) && e.Start < last.AddDays(1).ToDateTime(TimeOnly.MinValue)).ToList();
 
@@ -16,6 +20,13 @@ internal sealed class FakeCalendar : ICalendar
     {
         var id = $"new{++next}";
         Writes.Add($"create {Describe(body)}");
+        if (CreateFail is { } fail)
+        {
+            CreateFail = null;
+            if (CreateLands)
+                Items.Add(Owned(id, body));
+            throw fail;
+        }
         Items.Add(Owned(id, body));
         return id;
     }
@@ -135,6 +146,36 @@ public sealed class CalendarBankHolidaysTests : IDisposable
         Run(Settings, "run");
         Assert.Empty(calendar.Writes);
         Assert.Equal(1, downloads);   // read once a day; the kept copy after that
+    }
+
+    [Fact]
+    public void A_create_whose_answer_is_lost_is_not_resent_and_the_next_run_keeps_it_if_it_landed()
+    {
+        calendar.CreateFail = new M365Graph.GraphDeliveryUnknownException("POST", "/me/events", System.Net.HttpStatusCode.BadGateway, "busy");
+        calendar.CreateLands = true;
+        var (code, _, error) = Run(Settings, "run");
+        Assert.Equal(1, code);
+        Assert.Contains("may have been applied", error);
+        Assert.Equal(["create 2026-12-25 all-day Christmas Day free [Bank holiday]"], calendar.Writes);   // sent once; the run stopped there
+        var log = File.ReadAllText(Path.Combine(dir, "bh.log"));
+        Assert.Contains("couldn't confirm: create 2026-12-25 \"Christmas Day\" may have gone", log);
+        Assert.Contains("run failed: GraphDeliveryUnknownException", log);
+
+        calendar.Writes.Clear();
+        Assert.Equal(0, Run(Settings, "run").Code);   // read back by its stamp: Christmas Day is there, so not added again
+        Assert.Equal(4, calendar.Writes.Count);
+        Assert.DoesNotContain(calendar.Writes, w => w.StartsWith("create 2026-12-25", StringComparison.Ordinal));
+        Assert.Single(calendar.Items, e => e.OwnedDay == new DateOnly(2026, 12, 25));
+    }
+
+    [Fact]
+    public void A_create_whose_answer_is_lost_and_that_never_landed_is_written_by_the_next_run()
+    {
+        calendar.CreateFail = new M365Graph.GraphDeliveryUnknownException("POST", "/me/events", new TaskCanceledException("timed out"));
+        Assert.Equal(1, Run(Settings, "run").Code);
+        Assert.Empty(calendar.Items);
+        Assert.Equal(0, Run(Settings, "run").Code);
+        Assert.Equal(5, calendar.Items.Count);
     }
 
     [Fact]

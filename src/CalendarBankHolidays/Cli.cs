@@ -174,20 +174,17 @@ public static class Cli
             counts[p.Action] = counts.GetValueOrDefault(p.Action) + 1;
             if (dryRun)
                 continue;
-            switch (p.Action)
+            try
             {
-                case Action.Delete:
-                    calendar.Delete(p.Have!.Id);
-                    log($"removed {p.Day:yyyy-MM-dd} \"{p.Have.Subject}\" ({p.Note})");
-                    break;
-                case Action.Update or Action.Adopt:
-                    calendar.Update(p.Have!.Id, p.Want!);
-                    log($"{(p.Action == Action.Adopt ? $"took over \"{p.Have.Subject}\" as" : "updated")} {p.Day:yyyy-MM-dd} \"{p.Want!["subject"]}\"");
-                    break;
-                case Action.Create:
-                    calendar.Create(p.Want!);
-                    log($"added {p.Day:yyyy-MM-dd} \"{p.Want!["subject"]}\"");
-                    break;
+                Write(calendar, p, log);
+            }
+            catch (GraphDeliveryUnknownException)
+            {
+                // It may have landed: not sent again. The next run reads the calendar back by the stamp, so it is
+                // kept if it did, and written if it didn't. The run stops here and fails, through Failed.
+                log($"couldn't confirm: {p.Action.ToString().ToLowerInvariant()} {p.Day:yyyy-MM-dd} \"{(string?)p.Want?["subject"] ?? p.Have?.Subject}\" "
+                    + "may have gone; not sent again, and the next run reads the calendar back to check");
+                throw;
             }
         }
         var summary = $"{first:dd/MM/yyyy} to {last:dd/MM/yyyy}: {counts.GetValueOrDefault(Action.Create)} to add, "
@@ -203,6 +200,25 @@ public static class Cli
             log(done);
         }
         return 0;
+    }
+
+    private static void Write(ICalendar calendar, DayPlan p, System.Action<string> log)
+    {
+        switch (p.Action)
+        {
+            case Action.Delete:
+                calendar.Delete(p.Have!.Id);
+                log($"removed {p.Day:yyyy-MM-dd} \"{p.Have.Subject}\" ({p.Note})");
+                break;
+            case Action.Update or Action.Adopt:
+                calendar.Update(p.Have!.Id, p.Want!);
+                log($"{(p.Action == Action.Adopt ? $"took over \"{p.Have.Subject}\" as" : "updated")} {p.Day:yyyy-MM-dd} \"{p.Want!["subject"]}\"");
+                break;
+            case Action.Create:
+                calendar.Create(p.Want!);
+                log($"added {p.Day:yyyy-MM-dd} \"{p.Want!["subject"]}\"");
+                break;
+        }
     }
 
     internal static string Line(DayPlan p, bool dryRun)
