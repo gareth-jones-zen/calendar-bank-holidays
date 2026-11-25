@@ -69,6 +69,32 @@ Windows (x64) only; nothing else is needed.
   "couldn't confirm ... may have gone"), and the next run reads the calendar back by the hidden property: an entry that
   landed is kept, one that didn't is added, and a second one for a day is removed.
 
+## The shared activity journal (0.6.0)
+
+With **`journal_file`** set (top level, or in the base file so every tool shares it: by convention
+`journal_file = "%EA_LOCAL%/journal.jsonl"`), each entry it adds, takes over, updates or removes is also **one JSON line
+in a journal shared by the tools**, written through background-tools-lib's
+[ActivityJournal](https://github.com/gareth-jones-zen/background-tools-lib#activityjournal), for a "while you were
+away" view. Without it, nothing is written (the default).
+
+```json
+{"id":"c2e94b0f7a15","when":"2026-11-19T07:00:03.441+00:00","tool":"calendar-bank-holidays","what":"add","by":"auto","subject":"Boxing Day (substitute day), Mon 28 Dec 2026","rule":"all_day","why":"Boxing Day","item":"AAMkAD...","sensitivity":"normal"}
+```
+
+| `what` | When | `undo` |
+|---|---|---|
+| `add`, `take-over`, `update`, `remove` | `run` (by the task, or by hand: the same rules), `by` `auto` | none: the next run would put it back as the rules say |
+| `remove` | `remove`, `by` `hand`, `rule` `by hand` | `calendar-bank-holidays run` (acts at once; `plan` shows what it would write) |
+
+- **Only what was sent**: never `plan` or a `--dry-run`. A change whose answer was lost (it may or may not have
+  landed) has `"outcome": "unconfirmed"`; the next run reads the calendar back as always.
+- `subject` is the entry's title and its day; `rule` is `all_day` or `block`; `why` is GOV.UK's name for the day, with
+  the reason for a removal (`not a bank holiday`, `switched off`, `a second one for the day`) or the entry of yours
+  taken over;
+  `item` is the event id.
+- **Every line is `"sensitivity": "normal"`**: bank holidays are public.
+- **Writing it never fails the run**: a problem is logged (`journal: couldn't write to ...`) and the run carries on.
+
 ## Commands
 
 ```
@@ -96,6 +122,7 @@ time_zone = "GMT Standard Time"   # optional (a Windows name); default this PC's
 log_file = "..."                  # default %LOCALAPPDATA%\calendar-bank-holidays\calendar-bank-holidays.log
 state_file = "..."                # whether runs are failing, and the day the list was last read
 cache_file = "..."                # the last good copy of GOV.UK's list
+journal_file = "..."              # optional: the shared activity journal (0.6.0; usually from the base file)
 enabled = true                    # false: runs do nothing (`remove` takes its entries out)
 region = "england-and-wales"      # or scotland, northern-ireland
 months_ahead = 12

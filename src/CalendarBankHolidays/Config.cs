@@ -73,7 +73,7 @@ public sealed class Config
     [
         "login_hint", "tenant", "msal_cache", "log_file", "state_file", "cache_file", "time_zone", "enabled", "region",
         "months_ahead", "long_range_months_ahead", "feed_url", "daily_at", "after_unlock_minutes", "notify", "max_deletes", "body", "block", "all_day", "adopt",
-        "extra", "skip", "schedule",
+        "extra", "skip", "schedule", "journal_file",
     ];
 
     /// <summary>The task's schedule when the settings don't give one: daily at 07:00 and at logon, no unlock run.</summary>
@@ -88,6 +88,9 @@ public sealed class Config
     public string? MsalCache { get; init; }
     public required string LogFile { get; init; }
     public required string StateFile { get; init; }
+    /// <summary>The shared activity journal (0.6.0; journal_file, usually from the base): one line for each entry added,
+    /// taken over, updated or removed. Null writes none.</summary>
+    public string? JournalFile { get; init; }
     public required string CacheFile { get; init; }
     public required TimeZoneInfo TimeZone { get; init; }
     public bool Enabled { get; init; } = true;
@@ -313,6 +316,7 @@ public sealed class Config
             Tenant = Text(raw, "tenant", "tenant") ?? "organizations",
             MsalCache = Text(raw, "msal_cache", "msal_cache") is { } cache ? PathSetting(cache) : null,
             LogFile = Text(raw, "log_file", "log_file") is { } log ? PathSetting(log) : PyPath.Pure(System.IO.Path.Combine(Local(env), "calendar-bank-holidays.log")),
+            JournalFile = Text(raw, "journal_file", "journal_file") is { } journal ? PathSetting(journal) : null,
             StateFile = Text(raw, "state_file", "state_file") is { } state ? PathSetting(state) : PyPath.Pure(System.IO.Path.Combine(Local(env), "state.json")),
             CacheFile = Text(raw, "cache_file", "cache_file") is { } cf ? PathSetting(cf) : PyPath.Pure(System.IO.Path.Combine(Local(env), "calendar-bank-holidays.json")),
             TimeZone = zone,
